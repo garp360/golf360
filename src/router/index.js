@@ -9,6 +9,11 @@ const routes = [
     meta: { public: true },
   },
   {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('../views/auth/OnboardingView.vue'),
+  },
+  {
     path: '/',
     name: 'dashboard',
     component: () => import('../views/groups/GroupsListView.vue'),
@@ -73,6 +78,14 @@ router.beforeEach((to) => {
   }
 
   if (to.name === 'login' && auth.isAuthenticated) {
+    return { name: 'dashboard' }
+  }
+
+  if (auth.isAuthenticated && !auth.isProfileComplete && to.name !== 'onboarding') {
+    return { name: 'onboarding' }
+  }
+
+  if (auth.isAuthenticated && auth.isProfileComplete && to.name === 'onboarding') {
     return { name: 'dashboard' }
   }
 

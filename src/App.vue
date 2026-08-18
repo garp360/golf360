@@ -24,7 +24,7 @@ watch(
 
 <template>
   <div class="contours"></div>
-  <AppShell v-if="auth.isAuthenticated">
+  <AppShell v-if="auth.isAuthenticated && auth.isProfileComplete">
     <router-view />
   </AppShell>
   <router-view v-else />
