@@ -12,9 +12,7 @@ const error = ref('')
 
 const genderOptions = [
   { value: 'male', label: 'Male' },
-  { value: 'female', label: 'Female' },
-  { value: 'non_binary', label: 'Non-binary' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+  { value: 'female', label: 'Female' }
 ]
 
 async function handleSubmit() {

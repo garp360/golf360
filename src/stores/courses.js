@@ -119,5 +119,54 @@ export const useCoursesStore = defineStore('courses', {
       })
       if (error) throw error
     },
+
+    async importCourseFromCsv(parsed) {
+      const { data: course, error: courseError } = await supabase
+        .from('courses')
+        .insert({ name: parsed.courseName, location: parsed.location || null })
+        .select()
+        .single()
+      if (courseError) throw courseError
+
+      const holesPayload = parsed.holes.map((h) => ({
+        course_id: course.id,
+        hole_number: h.hole_number,
+        par: h.par,
+        stroke_index: h.stroke_index,
+      }))
+      const { data: insertedHoles, error: holesError } = await supabase.from('holes').insert(holesPayload).select()
+      if (holesError) throw holesError
+
+      const holeIdByNumber = Object.fromEntries(insertedHoles.map((h) => [h.hole_number, h.id]))
+
+      for (const tee of parsed.teeBoxes) {
+        const totalYardage = Object.values(tee.yardages).reduce((sum, y) => sum + y, 0)
+        const { data: teeBox, error: teeError } = await supabase
+          .from('tee_boxes')
+          .insert({
+            course_id: course.id,
+            name: tee.name,
+            course_rating: tee.course_rating,
+            slope_rating: tee.slope_rating,
+            total_yardage: totalYardage || null,
+          })
+          .select()
+          .single()
+        if (teeError) throw teeError
+
+        const yardageRows = Object.entries(tee.yardages).map(([holeNumber, yardage]) => ({
+          tee_box_id: teeBox.id,
+          hole_id: holeIdByNumber[Number(holeNumber)],
+          yardage,
+        }))
+        if (yardageRows.length) {
+          const { error: yardageError } = await supabase.from('tee_box_hole_yardages').insert(yardageRows)
+          if (yardageError) throw yardageError
+        }
+      }
+
+      await this.fetchCourses()
+      return course
+    },
   },
 })

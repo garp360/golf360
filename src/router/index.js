@@ -44,6 +44,11 @@ const routes = [
     component: () => import('../views/events/RoundScoreView.vue'),
   },
   {
+    path: '/rounds/:id/flights',
+    name: 'round-flights',
+    component: () => import('../views/events/EventFlightsView.vue'),
+  },
+  {
     path: '/events/:id/leaderboard',
     name: 'event-leaderboard',
     component: () => import('../views/events/EventLeaderboardView.vue'),

@@ -71,28 +71,28 @@ export const useEventsStore = defineStore('events', {
       if (error) throw error
     },
 
-    async addEventRound(eventId, eventCourseId, roundNumber, roundDate) {
+    async addEventRound(eventId, eventCourseId, roundNumber, roundDate, firstTeeTime, teeTimeIntervalMinutes) {
       const { error } = await supabase.from('event_rounds').insert({
         event_id: eventId,
         event_course_id: eventCourseId,
         round_number: roundNumber,
         round_date: roundDate,
+        first_tee_time: firstTeeTime || null,
+        tee_time_interval_minutes: teeTimeIntervalMinutes || null,
       })
       if (error) throw error
     },
 
-    async signUp(eventId, teeBoxId) {
-      const { data: userData } = await supabase.auth.getUser()
-
-      // Upsert rather than insert: re-signing up after a withdrawal hits the same
-      // (event_id, user_id) row rather than a fresh one, since a withdrawn participant
-      // still has a row (status = 'withdrawn') for that unique pair.
-      // No official handicap yet at (re-)signup time — the handicap engine (once posted
-      // rounds exist) or an admin-entered provisional index fill this in later.
+    // Shared by self-signup and admin-add-on-behalf-of. Upsert rather than insert:
+    // re-signing up after a withdrawal hits the same (event_id, user_id) row rather than
+    // a fresh one, since a withdrawn participant still has a row for that unique pair.
+    // No official handicap yet at (re-)signup time — the handicap engine (once posted
+    // rounds exist) or an admin-entered provisional index fill this in later.
+    async addParticipant(eventId, userId, teeBoxId) {
       const { error } = await supabase.from('event_participants').upsert(
         {
           event_id: eventId,
-          user_id: userData.user.id,
+          user_id: userId,
           tee_box_id: teeBoxId,
           status: 'registered',
           handicap_index_at_signup: null,
@@ -105,6 +105,11 @@ export const useEventsStore = defineStore('events', {
         { onConflict: 'event_id,user_id' }
       )
       if (error) throw error
+    },
+
+    async signUp(eventId, teeBoxId) {
+      const { data: userData } = await supabase.auth.getUser()
+      await this.addParticipant(eventId, userData.user.id, teeBoxId)
     },
 
     async withdraw(participantId) {

@@ -17,6 +17,7 @@ const event = ref(null)
 const eventCourses = ref([])
 const eventRounds = ref([])
 const participants = ref([])
+const groupMembers = ref([])
 
 const isAdmin = computed(() => {
   if (!event.value) return false
@@ -37,6 +38,15 @@ const availableCoursesToAdd = computed(() => {
   return courses.courses.filter((c) => !addedIds.has(c.id))
 })
 
+const canAdminAdd = computed(() => event.value && !['closed', 'cancelled'].includes(event.value.status))
+
+const addableMembers = computed(() => {
+  const registeredIds = new Set(
+    participants.value.filter((p) => p.status === 'registered').map((p) => p.user_id)
+  )
+  return groupMembers.value.filter((m) => !registeredIds.has(m.user_id))
+})
+
 const statusOptions = ['draft', 'open', 'closed', 'completed', 'cancelled']
 
 async function load() {
@@ -46,6 +56,7 @@ async function load() {
   eventCourses.value = detail.eventCourses
   eventRounds.value = detail.eventRounds
   participants.value = detail.participants
+  groupMembers.value = await groups.fetchGroupMembers(detail.event.group_id)
   loading.value = false
 }
 
@@ -72,13 +83,27 @@ async function handleAddCourse() {
   await load()
 }
 
-const newRound = reactive({ event_course_id: '', round_date: '' })
+const newRound = reactive({
+  event_course_id: '',
+  round_date: '',
+  first_tee_time: '',
+  tee_time_interval_minutes: 10,
+})
 async function handleAddRound() {
   if (!newRound.event_course_id || !newRound.round_date) return
   const nextRoundNumber = eventRounds.value.length + 1
-  await events.addEventRound(event.value.id, newRound.event_course_id, nextRoundNumber, newRound.round_date)
+  await events.addEventRound(
+    event.value.id,
+    newRound.event_course_id,
+    nextRoundNumber,
+    newRound.round_date,
+    newRound.first_tee_time,
+    newRound.tee_time_interval_minutes
+  )
   newRound.event_course_id = ''
   newRound.round_date = ''
+  newRound.first_tee_time = ''
+  newRound.tee_time_interval_minutes = 10
   await load()
 }
 
@@ -92,6 +117,22 @@ async function handleSignUp() {
     await load()
   } finally {
     signingUp.value = false
+  }
+}
+
+const adminAddUserId = ref('')
+const adminAddTeeBoxId = ref('')
+const adminAdding = ref(false)
+async function handleAdminAdd() {
+  if (!adminAddUserId.value || !adminAddTeeBoxId.value) return
+  adminAdding.value = true
+  try {
+    await events.addParticipant(event.value.id, adminAddUserId.value, adminAddTeeBoxId.value)
+    adminAddUserId.value = ''
+    adminAddTeeBoxId.value = ''
+    await load()
+  } finally {
+    adminAdding.value = false
   }
 }
 
@@ -156,14 +197,15 @@ async function handleSaveHandicap(participant) {
           <div v-for="ec in eventCourses" :key="ec.id" class="course-block">
             <span class="course-name">{{ ec.course.name }}</span>
             <div class="round-links">
-              <RouterLink
-                v-for="r in eventRounds.filter((r) => r.event_course_id === ec.id)"
-                :key="r.id"
-                :to="{ name: 'round-score', params: { id: r.id } }"
-                class="round-link"
-              >
-                Round {{ r.round_number }} — {{ r.round_date }}
-              </RouterLink>
+              <div v-for="r in eventRounds.filter((r) => r.event_course_id === ec.id)" :key="r.id" class="round-link-row">
+                <RouterLink :to="{ name: 'round-score', params: { id: r.id } }" class="round-link">
+                  Round {{ r.round_number }} — {{ r.round_date }}
+                  <template v-if="r.first_tee_time">· {{ r.first_tee_time.slice(0, 5) }} tee, every {{ r.tee_time_interval_minutes }}m</template>
+                </RouterLink>
+                <RouterLink :to="{ name: 'round-flights', params: { id: r.id } }" class="round-link flights-link"
+                  >Tee Groups</RouterLink
+                >
+              </div>
               <span v-if="!eventRounds.some((r) => r.event_course_id === ec.id)" class="course-rounds">No rounds yet.</span>
             </div>
           </div>
@@ -184,6 +226,14 @@ async function handleSaveHandicap(participant) {
             <option v-for="ec in eventCourses" :key="ec.id" :value="ec.id">{{ ec.course.name }}</option>
           </select>
           <input v-model="newRound.round_date" type="date" />
+          <input v-model="newRound.first_tee_time" type="time" title="First tee time" />
+          <input
+            v-model.number="newRound.tee_time_interval_minutes"
+            type="number"
+            min="1"
+            class="interval-input"
+            title="Tee time interval (minutes)"
+          />
           <button class="btn btn-ghost" :disabled="!newRound.event_course_id || !newRound.round_date" @click="handleAddRound">
             Add Round
           </button>
@@ -203,6 +253,24 @@ async function handleSaveHandicap(participant) {
         </select>
         <button class="btn btn-primary" :disabled="!signupTeeBoxId || signingUp" @click="handleSignUp">
           {{ signingUp ? 'Signing up…' : 'Sign Up' }}
+        </button>
+      </div>
+
+      <div v-if="isAdmin && canAdminAdd && addableMembers.length" class="glass panel signup-panel">
+        <select v-model="adminAddUserId">
+          <option value="" disabled selected>Add member…</option>
+          <option v-for="m in addableMembers" :key="m.user_id" :value="m.user_id">
+            {{ m.user.display_name || m.user.email }}
+          </option>
+        </select>
+        <select v-model="adminAddTeeBoxId">
+          <option value="" disabled selected>Select tee box…</option>
+          <option v-for="tb in availableTeeBoxes" :key="tb.id" :value="tb.id">
+            {{ tb.course.name }} — {{ tb.name }}
+          </option>
+        </select>
+        <button class="btn btn-ghost" :disabled="!adminAddUserId || !adminAddTeeBoxId || adminAdding" @click="handleAdminAdd">
+          {{ adminAdding ? 'Adding…' : 'Add Participant' }}
         </button>
       </div>
 
@@ -341,11 +409,26 @@ section {
   margin-top: 8px;
 }
 
+.round-link-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .round-link {
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--green);
   text-decoration: none;
+}
+
+.flights-link {
+  color: var(--gold);
+}
+
+.interval-input {
+  width: 70px;
 }
 
 .course-rounds {
