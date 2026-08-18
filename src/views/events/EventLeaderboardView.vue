@@ -290,4 +290,28 @@ h1 {
   font-family: var(--font-mono);
   font-size: 12px;
 }
+
+@media (max-width: 480px) {
+  .leaderboard-head {
+    display: none;
+  }
+
+  .leaderboard-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 6px;
+  }
+
+  .leaderboard-row .player {
+    flex: 1 1 160px;
+    margin-left: 10px;
+  }
+
+  .leaderboard-row .stat {
+    flex: 0 0 auto;
+    margin-left: 16px;
+    text-align: left;
+  }
+}
 </style>

@@ -33,13 +33,22 @@ const auth = useAuthStore()
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 32px;
 }
 
 .shell-header-left {
   display: flex;
   align-items: center;
-  gap: 32px;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .shell {
+    padding: 20px 16px 60px;
+  }
 }
 
 .brand {

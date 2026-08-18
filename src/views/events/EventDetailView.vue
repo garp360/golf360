@@ -261,6 +261,8 @@ async function handleSaveHandicap(participant) {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
   margin-bottom: 32px;
 }
 
@@ -268,6 +270,18 @@ async function handleSaveHandicap(participant) {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .title-row-actions {
+    width: 100%;
+  }
+
+  .title-row-actions .btn,
+  .title-row-actions .status-select {
+    flex: 1 1 auto;
+  }
 }
 
 .title-row-actions .btn {
